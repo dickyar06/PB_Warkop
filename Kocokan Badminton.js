@@ -6,7 +6,7 @@ var LS='kocokan-badminton-v1';
 var DEF={mode:'double',drawBy:'games',courts:2,kok:2,courtFee:0,kokPrice:0,example:false,nextSeq:1,players:[],matches:[]};
 var S=clone(DEF);
 var RO=false, dbDoc=null, loaded=false;
-var UI={tab:'main',arm:null,copyText:null};
+var UI={tab:'main',arm:null,copyText:null,manualMode:null};
 
 function clone(o){return JSON.parse(JSON.stringify(o));}
 function normalize(d){var raw=clone(d||{}),o=Object.assign(clone(DEF),raw),players=Array.isArray(raw.players)?raw.players:[];if(typeof raw.kokPrice!=='number'){o.kokPrice=raw.tubeSize>0?(+raw.tubePrice||0)/raw.tubeSize:0;if(players.length)o.courtFee=(+raw.courtFee||0)/players.length;}delete o.tubePrice;delete o.tubeSize;delete o.split;if(!Array.isArray(o.players))o.players=[];if(!Array.isArray(o.matches))o.matches=[];if(['first','level','games'].indexOf(o.drawBy)<0)o.drawBy='games';o.players.forEach(function(p){if(['A','B','C','D','E'].indexOf(p.level)<0)p.level='C';p.kokUsed=Math.max(0,Math.floor(+p.kokUsed||0));});return o;}
@@ -95,6 +95,16 @@ function money(st){
     bills[p.id]=S.courtFee+(+p.kokUsed||0)*S.kokPrice;
   });
   return {kokTotal:kokTotal,kokCost:kokCost,total:Object.keys(bills).reduce(function(sum,id){return sum+bills[id];},0),bills:bills};
+}
+function setMatchKok(m,value){
+  var previous=+m.kok||0,next=clamp(value,0,20),delta=next-previous;
+  m.kok=next;
+  if(m.status==='done'&&delta){
+    m.a.concat(m.b).forEach(function(playerId){
+      var participant=S.players.find(function(x){return x.id===playerId;});
+      if(participant)participant.kokUsed=Math.max(0,(+participant.kokUsed||0)+delta);
+    });
+  }
 }
 
 /* ---------- the draw ---------- */
@@ -209,8 +219,26 @@ function viewMain(st){
   var spread=vals.length?Math.max.apply(null,vals)-Math.min.apply(null,vals):0;
   out+='<section class="card"><div class="sec-h"><h2>Menunggu giliran</h2><span class="fair"><i class="dot'+(spread>1?' mid':'')+'"></i>'+(spread<=1?'Jumlah main merata':'Selisih main '+spread+', yang sedikit diprioritaskan')+'</span></div>';
   if(!q.length)out+='<p class="muted" style="margin:0">Semua pemain aktif sedang di lapangan.</p>';
-  else out+='<div class="queue">'+q.map(function(p,i){return '<span class="chip'+(i<nextN?' next':'')+'">'+esc(p.name)+'<b>'+(st.games.get(p.id)||0)+'x</b></span>';}).join('')+'</div>'+
-    '<p class="muted small" style="margin:.7rem 0 0">'+(nextN?'Yang berwarna hijau kemungkinan masuk di kocokan berikutnya. ':'')+'Angka menunjukkan sudah berapa kali main. Urutan di antara yang jumlah mainnya sama diacak saat dikocok.</p>';
+  else{
+    var matrixMatches=S.matches.slice().sort(function(a,b){return a.seq-b.seq;});
+    var predictedGames=Math.ceil(nextN/k),lastSeq=matrixMatches.reduce(function(max,match){return Math.max(max,+match.seq||0);},0);
+    var nextSeq=Math.max(+S.nextSeq||1,lastSeq+1),columns=matrixMatches.length+predictedGames;
+    out+='<div class="queue-scroll"><table class="queue-table"><thead><tr><th class="queue-name-head" rowspan="2">Peserta</th><th class="queue-games-head" rowspan="2">Jumlah Main</th><th colspan="'+columns+'">Main Ke (Kok)</th></tr><tr>'+
+      matrixMatches.map(function(match){return '<th scope="col">'+match.seq+'</th>';}).join('')+
+      Array.from({length:predictedGames},function(_,i){return '<th scope="col">'+(nextSeq+i)+'</th>';}).join('')+
+      '</tr></thead><tbody>'+act.map(function(p){
+        var cells=matrixMatches.map(function(match){
+          var played=match.a.concat(match.b).indexOf(p.id)>=0;
+          return '<td>'+ (played?esc(match.kok):'')+'</td>';
+        }).join('');
+        var forecast=Array.from({length:predictedGames},function(_,i){
+          var willPlay=q.slice(i*k,(i+1)*k).some(function(waiting){return waiting.id===p.id;});
+          return '<td class="'+(willPlay?'queue-next':'')+'"'+(willPlay?' aria-label="Diprioritaskan pada partai '+(nextSeq+i)+'"':'')+'></td>';
+        }).join('');
+        return '<tr><th scope="row" class="queue-player">'+esc(p.name)+'</th><td class="queue-games">'+(st.games.get(p.id)||0)+'</td>'+cells+forecast+'</tr>';
+      }).join('')+'</tbody></table></div>'+
+      '<p class="muted small" style="margin:.7rem 0 0">'+(predictedGames?'Sel berwarna toska menandai perkiraan giliran berikutnya. ':'')+'Angka di setiap kolom menunjukkan jumlah kok yang dipakai pemain pada partai tersebut.</p>';
+  }
   out+='</section>';
   return out;
 }
@@ -257,13 +285,28 @@ function viewPay(st){
 function feeField(f,label,val,pre){
   return '<div class="f"><label class="lbl" for="fee_'+f+'">'+label+'</label><div class="paidin">'+(pre?'<span>Rp</span>':'')+'<input type="text" inputmode="numeric" id="fee_'+f+'" data-f="'+f+'" value="'+val+'"'+(RO?' disabled':'')+'></div></div>';
 }
+function manualMatchForm(){
+  var mode=UI.manualMode||S.mode,k=mode==='double'?4:2;
+  var out='<section class="card"><div class="sec-h"><h2>Catat pertandingan manual</h2><span class="muted small">Untuk pertandingan yang sudah dimainkan sebelum admin mencatatnya</span></div>';
+  var options='<option value="">Pilih peserta</option>'+S.players.map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>';}).join('');
+  out+='<form data-form="manual"><div class="ctl"><div class="f"><label class="lbl" for="manualMode">Jenis pertandingan</label><select id="manualMode" name="mode" data-f="manualMode"><option value="single"'+(mode==='single'?' selected':'')+'>Single</option><option value="double"'+(mode==='double'?' selected':'')+'>Double</option></select></div>'+
+    '<div class="f"><label class="lbl" for="manualCourt">Lapangan</label><input type="number" id="manualCourt" name="court" min="1" max="8" value="1" required></div>'+
+    '<div class="f"><label class="lbl" for="manualKok">Kok pertandingan</label><input type="number" id="manualKok" name="kok" min="0" max="20" value="'+S.kok+'" required></div></div>';
+  if(S.players.length<k)return out+'<p class="muted" style="margin:.7rem 0 0">Mode '+(mode==='double'?'double membutuhkan 4':'single membutuhkan 2')+' peserta. Tambahkan peserta atau pilih mode lain.</p></form></section>';
+  out+='<div class="manual-sides">'+
+    '<div class="manual-team"><span class="lbl">Tim A</span><select name="a1" aria-label="Pemain pertama tim A" required>'+options+'</select>'+(mode==='double'?'<select name="a2" aria-label="Pemain kedua tim A" required>'+options+'</select>':'')+'</div>'+
+    '<div class="manual-team"><span class="lbl">Tim B</span><select name="b1" aria-label="Pemain pertama tim B" required>'+options+'</select>'+(mode==='double'?'<select name="b2" aria-label="Pemain kedua tim B" required>'+options+'</select>':'')+'</div></div>'+
+    '<div class="go"><button class="btn primary" type="submit">Simpan pertandingan selesai</button><span class="muted small">Jumlah kok akan otomatis masuk ke peserta dan tagihan.</span></div></form></section>';
+  return out;
+}
 function viewHist(){
   var out='';
   if(RO)out+='<div class="note"><p>Mode lihat saja.</p></div>';
   out+=exampleNote();
   var ms=S.matches.slice().sort(function(a,b){return b.seq-a.seq;});
+  if(!RO)out+=manualMatchForm();
   out+='<section class="card"><div class="sec-h"><h2>Riwayat main</h2><span class="muted small">'+ms.length+' pertandingan</span></div>';
-  if(!ms.length)out+='<p class="muted" style="margin:0">Belum ada pertandingan. Kocok dulu di tab Kocok.</p>';
+  if(!ms.length)out+='<p class="muted" style="margin:0">Belum ada pertandingan yang tercatat.</p>';
   else ms.forEach(function(m){
     var A=m.a.map(function(i){return esc(nm(i));}).join(' &amp; '),B=m.b.map(function(i){return esc(nm(i));}).join(' &amp; ');
     out+='<div class="hrow"><span class="hno">#'+m.seq+'</span><span class="st '+(m.status==='playing'?'mid':'ok')+'">'+(m.status==='playing'?'Main · Lap '+m.court:'Selesai · Lap '+m.court)+'</span>'+
@@ -315,7 +358,7 @@ app.addEventListener('click',function(e){
     case 'courts':S.courts=clamp(S.courts+d,1,8);break;
     case 'kokdef':S.kok=clamp(S.kok+d,0,10);break;
     case 'gen':{var msg=generate();render();toast(msg);return;}
-    case 'kok':m=S.matches.find(function(x){return x.id===id;});if(m)m.kok=clamp((+m.kok||0)+d,0,20);break;
+    case 'kok':m=S.matches.find(function(x){return x.id===id;});if(m)setMatchKok(m,(+m.kok||0)+d);break;
     case 'done':
       m=S.matches.find(function(x){return x.id===id;});
       if(m&&m.status!=='done'){
@@ -348,6 +391,7 @@ app.addEventListener('click',function(e){
 app.addEventListener('change',function(e){
   var t=e.target,f=t.dataset.f;if(!f||RO)return;
   if(f==='paid'){var p=S.players.find(function(x){return x.id===t.dataset.id;});if(p)p.paid=num(t.value);}
+  else if(f==='manualMode'){UI.manualMode=t.value==='single'?'single':'double';render();return;}
   else if(f==='drawBy'){S.drawBy=['first','level','games'].indexOf(t.value)>=0?t.value:'games';}
   else if(f==='level'){var player=S.players.find(function(x){return x.id===t.dataset.id;});if(player&&['A','B','C','D','E'].indexOf(t.value)>=0)player.level=t.value;}
   else if(f==='kokUsed'){var participant=S.players.find(function(x){return x.id===t.dataset.id;});if(participant)participant.kokUsed=num(t.value);}
@@ -356,6 +400,23 @@ app.addEventListener('change',function(e){
 });
 app.addEventListener('submit',function(e){
   e.preventDefault();if(RO)return;
+  if(e.target.dataset.form==='manual'){
+    var manualData=new FormData(e.target),mode=manualData.get('mode')==='single'?'single':'double';
+    var a=[String(manualData.get('a1')||'')],b=[String(manualData.get('b1')||'')];
+    if(mode==='double'){a.push(String(manualData.get('a2')||''));b.push(String(manualData.get('b2')||''));}
+    var playerIds=a.concat(b),kok=Number(manualData.get('kok')),court=Number(manualData.get('court'));
+    if(playerIds.some(function(id){return !id||!S.players.some(function(p){return p.id===id;});})||new Set(playerIds).size!==playerIds.length){toast('Pilih peserta yang berbeda untuk setiap posisi.');return;}
+    if(!Number.isInteger(kok)||kok<0||kok>20||!Number.isInteger(court)||court<1||court>8){toast('Periksa kembali jumlah kok dan nomor lapangan.');return;}
+    var maxSeq=S.matches.reduce(function(max,match){return Math.max(max,+match.seq||0);},0);
+    S.nextSeq=Math.max(+S.nextSeq||1,maxSeq+1);
+    var match={id:uid(),seq:S.nextSeq++,court:court,a:a,b:b,kok:kok,status:'done'};
+    S.matches.push(match);
+    playerIds.forEach(function(playerId){
+      var participant=S.players.find(function(p){return p.id===playerId;});
+      participant.kokUsed=(+participant.kokUsed||0)+kok;
+    });
+    persist();render();toast('Pertandingan selesai dicatat. '+kok+' kok ditambahkan ke setiap pemain.');return;
+  }
   var fd=new FormData(e.target);
   addPlayers(String(fd.get('names')||''),fd.get('join')!=='equal');
 });
