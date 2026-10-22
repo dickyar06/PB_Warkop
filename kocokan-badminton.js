@@ -183,10 +183,28 @@ function exampleNote(){
 function courtCard(c,m){
   if(!m)return '<article class="slot empty"><div class="slot-h"><h3>Lapangan '+c+'</h3><span>Kosong</span></div><p style="margin:0">Tekan Kocok untuk mengisi lapangan ini.</p></article>';
   var side=function(ids){return ids.map(function(id){return '<span class="pl">'+esc(nm(id))+'</span>';}).join('');};
+  var editing=!RO&&UI.editMatch===m.id&&m.status==='playing',lineup='';
+  if(editing){
+    var occupied=new Set();
+    S.matches.forEach(function(other){
+      if(other.id!==m.id&&other.status==='playing')other.a.concat(other.b).forEach(function(id){occupied.add(id);});
+    });
+    var options=S.players.filter(function(p){return !occupied.has(p.id)&&(p.active||m.a.concat(m.b).indexOf(p.id)>=0);});
+    var select=function(team,index,current){
+      return '<select name="'+team+index+'" aria-label="Pemain '+(index+1)+' tim '+team.toUpperCase()+'" required>'+options.map(function(p){
+        return '<option value="'+esc(p.id)+'"'+(p.id===current?' selected':'')+'>'+esc(p.name)+'</option>';
+      }).join('')+'</select>';
+    };
+    lineup='<form class="match-edit" data-form="edit-match" data-id="'+m.id+'"><div class="edit-team"><span class="lbl">Tim A</span>'+m.a.map(function(id,i){return select('a',i,id);}).join('')+'</div>'+
+      '<strong class="edit-vs">Lawan</strong><div class="edit-team"><span class="lbl">Tim B</span>'+m.b.map(function(id,i){return select('b',i,id);}).join('')+'</div>'+
+      '<div class="edit-actions"><button class="btn sm primary" type="submit">Simpan pemain</button><button class="btn sm" type="button" data-act="cancelEditMatch" data-id="'+m.id+'">Batal ubah</button></div></form>';
+  }else{
+    lineup='<div class="court'+(m.a.length===1?' single':'')+'"><span class="sl" style="left:30%"></span><span class="sl" style="left:70%"></span><span class="tm a">A</span><span class="tm b">B</span><div class="half">'+side(m.a)+'</div><div class="half">'+side(m.b)+'</div></div>';
+  }
   return '<article class="slot"><div class="slot-h"><h3>Lapangan '+c+'</h3><span>Main ke-'+m.seq+'</span></div>'+
-    '<div class="court'+(m.a.length===1?' single':'')+'"><span class="sl" style="left:30%"></span><span class="sl" style="left:70%"></span><span class="tm a">A</span><span class="tm b">B</span><div class="half">'+side(m.a)+'</div><div class="half">'+side(m.b)+'</div></div>'+
+    lineup+
     '<div class="slot-f"><div class="kok"><span class="lbl">Kok pertandingan</span>'+(RO?'<b class="num">'+m.kok+'</b>':stepper('kok',m.id,m.kok,'Jumlah kok pertandingan'))+'</div>'+
-    (RO?'':'<div class="acts"><button class="btn sm warn'+(UI.arm==='cancel:'+m.id?' armed':'')+'" data-act="cancel" data-id="'+m.id+'">'+(UI.arm==='cancel:'+m.id?'Yakin batal?':'Batalkan')+'</button><button class="btn sm primary" data-act="done" data-id="'+m.id+'">Selesai</button></div>')+'</div></article>';
+    (RO?'':'<div class="acts">'+(m.status==='playing'&&!editing?'<button class="btn sm" data-act="editMatch" data-id="'+m.id+'">Ubah pemain</button>':'')+'<button class="btn sm warn'+(UI.arm==='cancel:'+m.id?' armed':'')+'" data-act="cancel" data-id="'+m.id+'">'+(UI.arm==='cancel:'+m.id?'Yakin batal?':'Batalkan')+'</button><button class="btn sm primary" data-act="done" data-id="'+m.id+'">Selesai</button></div>')+'</div></article>';
 }
 var PM=new Map();
 function nm(id){var p=PM.get(id);return p?p.name:'(dihapus)';}
@@ -358,6 +376,8 @@ app.addEventListener('click',function(e){
     case 'courts':S.courts=clamp(S.courts+d,1,8);break;
     case 'kokdef':S.kok=clamp(S.kok+d,0,10);break;
     case 'gen':{var msg=generate();render();toast(msg);return;}
+    case 'editMatch':m=S.matches.find(function(x){return x.id===id&&x.status==='playing';});if(m)UI.editMatch=id;break;
+    case 'cancelEditMatch':UI.editMatch=null;break;
     case 'kok':m=S.matches.find(function(x){return x.id===id;});if(m)setMatchKok(m,(+m.kok||0)+d);break;
     case 'done':
       m=S.matches.find(function(x){return x.id===id;});
@@ -400,6 +420,19 @@ app.addEventListener('change',function(e){
 });
 app.addEventListener('submit',function(e){
   e.preventDefault();if(RO)return;
+  if(e.target.dataset.form==='edit-match'){
+    var match=S.matches.find(function(x){return x.id===e.target.dataset.id&&x.status==='playing';});
+    if(!match){UI.editMatch=null;render();toast('Pertandingan ini sudah tidak bisa diubah.');return;}
+    var editData=new FormData(e.target),a=match.a.map(function(_,i){return String(editData.get('a'+i)||'');}),b=match.b.map(function(_,i){return String(editData.get('b'+i)||'');});
+    var playerIds=a.concat(b),busyElsewhere=new Set();
+    S.matches.forEach(function(other){
+      if(other.id!==match.id&&other.status==='playing')other.a.concat(other.b).forEach(function(playerId){busyElsewhere.add(playerId);});
+    });
+    if(playerIds.some(function(playerId){return !playerId||!S.players.some(function(p){return p.id===playerId;})||busyElsewhere.has(playerId);})||new Set(playerIds).size!==playerIds.length){
+      toast('Pilih peserta berbeda yang tidak sedang bermain di lapangan lain.');return;
+    }
+    match.a=a;match.b=b;UI.editMatch=null;persist();render();toast('Pemain pertandingan diperbarui.');return;
+  }
   if(e.target.dataset.form==='manual'){
     var manualData=new FormData(e.target),mode=manualData.get('mode')==='single'?'single':'double';
     var a=[String(manualData.get('a1')||'')],b=[String(manualData.get('b1')||'')];

@@ -1,4 +1,4 @@
-:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}
 
 /* Layout: sticky tab bar over a single column. Each lapangan is drawn as a top-down court (net in the middle, one team per side) so the draw reads like the real hall. */
 :root{
@@ -6,13 +6,14 @@
   --accent:#0C6B4F; --accent-ink:#FFFFFF; --accent-soft:#DCEEE5;
   --shuttle:#E6B22E; --shuttle-ink:#3A2A00;
   --floor:#1B8764; --court-line:rgba(255,255,255,.9); --net:#F4EFD6; --pill:#FFFFFF; --pill-ink:#10241B;
-  --ok:#17704A; --ok-soft:#D9EFE2; --mid:#8F6200; --mid-soft:#F8EBC8; --bad:#B3402E; --bad-soft:#F7E1DC;
+  --ok:#17704A; --ok-soft:#D9EFE2; --mid:#7A5300; --mid-soft:#F8EBC8; --bad:#B3402E; --bad-soft:#F7E1DC;
   --turn:var(--floor); --turn-ink:var(--court-line);
   --font-display:'Barlow Condensed','Arial Narrow',Impact,sans-serif;
   --font-body:'Instrument Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
+  :root:not([data-theme="light"]),
+  :root[data-theme="dark"]{
     --bg:#0D1612; --surface:#16231D; --ink:#E6F0EA; --muted:#93A89D; --border:#2A3C33;
     --accent:#4CCB9F; --accent-ink:#06261B; --accent-soft:#1B3A2E;
     --shuttle:#F0C54B; --shuttle-ink:#3A2A00;
@@ -21,20 +22,13 @@
     color-scheme:dark;
   }
 }
-:root[data-theme="dark"]{
-  --bg:#0D1612; --surface:#16231D; --ink:#E6F0EA; --muted:#93A89D; --border:#2A3C33;
-  --accent:#4CCB9F; --accent-ink:#06261B; --accent-soft:#1B3A2E;
-  --shuttle:#F0C54B; --shuttle-ink:#3A2A00;
-  --floor:#0F5B44; --court-line:rgba(255,255,255,.8); --net:#E9E3C4; --pill:#E9F3ED; --pill-ink:#0D1F17;
-  --ok:#5FD39C; --ok-soft:#173A2B; --mid:#E9B949; --mid-soft:#3A2F10; --bad:#F0907F; --bad-soft:#3E1F1A;
-  color-scheme:dark;
-}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--font-body);padding-inline:16px;padding-block:0 4.5rem}
 .wrap{max-width:1040px;margin:0 auto}
 h1,h2,h3{font-family:var(--font-display);margin:0;font-weight:700;text-wrap:balance;letter-spacing:.01em}
 button,input,select{font:inherit;color:inherit}
 :focus-visible{outline:3px solid var(--shuttle);outline-offset:2px}
+::placeholder{color:var(--muted);opacity:1}
 
 .top{display:flex;align-items:flex-end;justify-content:space-between;gap:.75rem 1.5rem;flex-wrap:wrap;padding-block:1.25rem .9rem}
 .brand{display:flex;align-items:center;gap:.7rem;min-width:0}
@@ -47,7 +41,7 @@ button,input,select{font:inherit;color:inherit}
 .stat span{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 
 .tabs{display:flex;gap:.25rem;border-bottom:2px solid var(--border);position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5;overflow-x:auto}
-.tab{background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-2px;padding:.7rem .9rem;font:600 1.15rem/1 var(--font-display);letter-spacing:.03em;text-transform:uppercase;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab{background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-2px;padding:.7rem .9rem;font:600 1.15rem/1 var(--font-display);letter-spacing:.03em;text-transform:uppercase;color:var(--muted);cursor:pointer;white-space:nowrap;transition:color .15s ease,border-color .15s ease}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 
 main{display:flex;flex-direction:column;gap:1.25rem;padding-block:1.1rem}
@@ -59,7 +53,7 @@ main{display:flex;flex-direction:column;gap:1.25rem;padding-block:1.1rem}
 .sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem}
 .sec-h h2{font-size:1.5rem;text-transform:uppercase}
 
-.btn{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.5rem .9rem;min-height:2.5rem;font-weight:600;font-size:.9rem;cursor:pointer}
+.btn{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.5rem .9rem;min-height:2.5rem;font-weight:600;font-size:.9rem;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,color .15s ease}
 .btn:hover{border-color:var(--accent)}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .btn.warn{border-color:var(--bad);color:var(--bad)}
@@ -69,7 +63,7 @@ main{display:flex;flex-direction:column;gap:1.25rem;padding-block:1.1rem}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 
 .seg{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--border);border-radius:10px;background:var(--bg)}
-.seg button{border:0;background:none;border-radius:7px;padding:.45rem 1.1rem;font-weight:600;cursor:pointer;min-height:2.4rem}
+.seg button{border:0;background:none;border-radius:7px;padding:.45rem 1.1rem;font-weight:600;cursor:pointer;min-height:2.4rem;transition:background-color .15s ease,color .15s ease}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .step{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)}
 .step button{border:0;background:none;width:2.5rem;height:2.4rem;font-size:1.2rem;cursor:pointer}
@@ -95,7 +89,7 @@ select{background:var(--bg);border:1px solid var(--border);border-radius:8px;pad
 .slot-h{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem}
 .slot-h h3{font-size:1.35rem;text-transform:uppercase}
 .slot-h span{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
-.court{position:relative;display:grid;grid-template-columns:1fr 1fr;min-height:9rem;background:var(--floor);border:3px solid var(--court-line);border-radius:4px;overflow:hidden}
+.court{position:relative;display:grid;grid-template-columns:1fr 1fr;aspect-ratio:2.2/1;background:var(--floor);border:3px solid var(--court-line);border-radius:4px;overflow:hidden}
 .court::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:var(--court-line)}
 .court::after{content:"";position:absolute;top:-2px;bottom:-2px;left:50%;width:6px;margin-left:-3px;border-inline:2px solid var(--net);opacity:.95}
 .court .sl{position:absolute;top:0;bottom:0;width:2px;background:var(--court-line);opacity:.75}
@@ -107,6 +101,11 @@ select{background:var(--bg);border:1px solid var(--border);border-radius:8px;pad
 .slot-f{display:flex;flex-wrap:wrap;gap:.5rem .75rem;align-items:center;justify-content:space-between}
 .kok{display:flex;align-items:center;gap:.5rem}
 .acts{display:flex;gap:.4rem;flex-wrap:wrap}
+.match-edit{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:.65rem;align-items:end}
+.edit-team{display:flex;flex-direction:column;gap:.4rem;min-width:0}
+.edit-team select{width:100%;min-width:0}
+.edit-vs{padding-bottom:.65rem;color:var(--muted)}
+.edit-actions{grid-column:1/-1;display:flex;gap:.4rem;flex-wrap:wrap}
 
 .queue-scroll{max-width:100%;overflow-x:auto;border:1px solid var(--border);border-radius:6px}
 .queue-table{border-collapse:collapse;min-width:100%;width:max-content;font-variant-numeric:tabular-nums}
@@ -174,3 +173,14 @@ textarea.copybox{width:100%;min-height:9rem;background:var(--bg);border:1px soli
   .queue-table .queue-games-head,.queue-table .queue-games{min-width:4.5rem}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{
+  :root{--bg:#FFFFFF;--surface:#FFFFFF;--ink:#13241D;--muted:#4A5A52;--border:#B7C4BC;--court-line:#9AA39D;--net:#9AA39D;color-scheme:light}
+  body{padding:0;background:#fff;color:#000}
+  .tabs,.btn,.seg,.step,.acts,.pacts,.toast,.tab{display:none!important}
+  .queue-scroll{overflow:visible}
+  .slot{border:1px solid #B7C4BC}
+  .court{background:#EFEFEF}
+  .queue-next{background:#E2E7E3;color:#000}
+  .courts{grid-template-columns:1fr 1fr}
+  .card,.slot{break-inside:avoid}
+}
